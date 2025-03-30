@@ -1,4 +1,4 @@
-from model import Reader, Book, Loan, Penalty, LibraryCatalog
+from model import *
 
 def main():
     # Создаем каталог библиотеки
