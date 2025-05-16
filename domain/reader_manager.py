@@ -1,20 +1,21 @@
 from typing import Optional, Dict, List
 from datetime import date
-from .reader import Reader
-from .loan import Loan
-from .penalty import Penalty
-from .book import Book
+from model import *
+from .storage_service import StorageService
 
 class ReaderManager:
-    def __init__(self):
-        self.readers: List[Reader] = []
-        self.loans: List[Loan] = []
-        self.penalties: List[Penalty] = []
+    def __init__(self, storage_service: Optional[StorageService] = None):
+        self.storage_service = storage_service or StorageService()
+        data = self.storage_service.load_library_data()
+        self.readers: List[Reader] = data['readers']
+        self.loans: List[Loan] = data['loans']
+        self.penalties: List[Penalty] = data['penalties']
 
     def register_reader(self, reader: Reader) -> bool:
         if self.find_reader(reader.ticket_number):
             return False
         self.readers.append(reader)
+        self._save_data()
         return True
 
     def update_reader(self, ticket_number: str, **kwargs) -> bool:
@@ -28,6 +29,7 @@ class ReaderManager:
                     setattr(reader, key, value)
                 elif key in ['full_name', 'category']:
                     setattr(reader, key, value)
+        self._save_data()
         return True
 
     def remove_reader(self, ticket_number: str) -> bool:
@@ -48,6 +50,7 @@ class ReaderManager:
             return False
 
         self.readers.remove(reader)
+        self._save_data()
         return True
 
     def find_reader(self, ticket_number: str) -> Optional[Reader]:
@@ -60,7 +63,7 @@ class ReaderManager:
         reader = self.find_reader(ticket_number)
         if not reader:
             return {}
-
+            
         active_loans = []
         overdue_loans = []
         returned_loans = []
@@ -102,3 +105,33 @@ class ReaderManager:
             'returned_loans': returned_loans,
             'penalties': penalties
         }
+        
+    def _save_data(self) -> None:
+        """Сохраняет текущее состояние данных через storage_service."""
+        self.storage_service.save_library_data(
+            readers=self.readers,
+            books=[],  # Книги управляются через LibraryCatalog
+            loans=self.loans,
+            penalties=self.penalties
+        )
+
+    def issue_book(self, ticket_number: str, book) -> bool:
+        reader = self.find_reader(ticket_number)
+        if not reader:
+            return False
+        if book.available_copies <= 0:
+            return False  # No copies available
+        loan = Loan(reader, book)
+        self.loans.append(loan)
+        self._save_data()
+        return True
+
+    def return_book(self, ticket_number: str, library_code: str) -> bool:
+        for loan in self.loans:
+            if (loan.reader.ticket_number == ticket_number and
+                loan.book.library_code == library_code and
+                loan.return_date is None):
+                loan.return_book()
+                self._save_data()
+                return True
+        return False

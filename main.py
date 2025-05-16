@@ -1,8 +1,13 @@
 from model import *
+from domain import *
 
 def main():
-    # Создаем каталог библиотеки
-    catalog = LibraryCatalog()
+    # Инициализируем сервис хранения данных
+    storage_service = StorageService()
+    
+    # Создаем менеджер читателей и каталог библиотеки с общим хранилищем
+    reader_manager = ReaderManager(storage_service)
+    catalog = LibraryCatalog(storage_service)
 
     # Создаем книгу
     book = Book(
@@ -22,6 +27,7 @@ def main():
         category="Студент"
     )
 
+    reader_manager.register_reader(reader)
     # Выдаем книгу читателю
     loan = Loan(reader, book)
 
